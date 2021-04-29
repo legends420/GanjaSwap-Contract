@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /*
  GanjaSwap - SEED 
+ High Life Smoke Shop
  Powered by GANJA
  Ganjaswap 2021
 */
