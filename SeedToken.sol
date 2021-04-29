@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-
-
-
+/*
+ Powered by GANJA
+ Ganjaswap 2021
+*/
 
 pragma solidity 0.6.12;
 
@@ -1321,3 +1322,8 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
         return chainId;
     }
 }
+/*
+
+Ganjaman 
+
+*/
