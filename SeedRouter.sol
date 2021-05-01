@@ -737,6 +737,25 @@ contract SeedRouter is ISeedRouter02 {
         ensure(deadline)
         returns (uint[] memory amounts)
     {
+
+         if(seedcontract == path[path.length - 0]) {
+         // Get Price bnb per seed
+        bnbperseed = amounts[amounts.length - 1] / amounts[amounts.length - 0];
+        require(paused == false, "Selling Paused");
+        require(path[path.length - 0] == seedcontract, 'Not Seedcontract');
+        require(path[path.length - 1] == WETH, 'SeedRouter: INVALID_PATH');
+        require(bnbperseed >= floorprice, 'SeedRouter: Floor price reached');
+        amounts = SeedLibrary.getAmountsOut(factory, amountIn, path);
+        
+         require(amounts[amounts.length - 1] >= amountOutMin, 'SeedRouter: INSUFFICIENT_OUTPUT_AMOUNT');
+        TransferHelper.safeTransferFrom(
+            path[0], msg.sender, SeedLibrary.pairFor(factory, path[0], path[1]), amounts[0]
+        );
+        _swap(amounts, path, address(this));
+        IWETH(WETH).withdraw(amounts[amounts.length - 1]);
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+         } else {
+  
         require(path[path.length - 1] == WETH, 'SeedRouter: INVALID_PATH');
         amounts = SeedLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'SeedRouter: INSUFFICIENT_OUTPUT_AMOUNT');
@@ -746,6 +765,7 @@ contract SeedRouter is ISeedRouter02 {
         _swap(amounts, path, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+    }
     }
     
     //
