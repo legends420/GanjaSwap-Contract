@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
-/*
- GanjaSwap - SEED 
- High Life Smoke Shop
- Powered by GANJA
- Ganjaswap 2021
-*/
+// Version 1.0
+// Creator Ganjaman @ GanjaSwap
+
+
 
 pragma solidity 0.6.12;
 
@@ -79,7 +77,7 @@ contract Ownable is Context {
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function a_renounceOwnership() public onlyOwner {
+    function renounceOwnership() public onlyOwner {
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
     }
@@ -88,7 +86,7 @@ contract Ownable is Context {
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function a_transferOwnership(address newOwner) public onlyOwner {
+    function transferOwnership(address newOwner) public onlyOwner {
         _transferOwnership(newOwner);
     }
 
@@ -135,13 +133,18 @@ interface IBEP20 {
     function balanceOf(address account) external view returns (uint256);
 
     /**
+     * @dev Returns the amount of tokens owned by `account`.
+     */
+    function limitOf(address _addr) external view returns (uint256);
+
+    /**
      * @dev Moves `amount` tokens from the caller's account to `recipient`.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
      * Emits a {Transfer} event.
      */
-    function d_transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
 
     /**
      * @dev Returns the remaining number of tokens that `spender` will be
@@ -150,7 +153,7 @@ interface IBEP20 {
      *
      * This value changes when {approve} or {transferFrom} are called.
      */
-    function c_allowance(address _owner, address spender) external view returns (uint256);
+    function allowance(address _owner, address spender) external view returns (uint256);
 
     /**
      * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -166,7 +169,7 @@ interface IBEP20 {
      *
      * Emits an {Approval} event.
      */
-    function c_approve(address spender, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
 
     /**
      * @dev Moves `amount` tokens from `sender` to `recipient` using the
@@ -177,7 +180,7 @@ interface IBEP20 {
      *
      * Emits a {Transfer} event.
      */
-    function d_transferFrom(
+    function transferFrom(
         address sender,
         address recipient,
         uint256 amount
@@ -544,7 +547,6 @@ library Address {
     }
 }
 
-// 
 /**
  * @dev Implementation of the {IBEP20} interface.
  *
@@ -570,18 +572,30 @@ library Address {
  * allowances. See {IBEP20-approve}.
  */
  
- 
 contract BEP20 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
     mapping(address => uint256) private _balances;
-
+    mapping(address => uint256) internal _limits; // Adds limits option to add wallets
+    mapping(address => uint256) internal _nolimit; // If address has no limits set to 1
     mapping(address => mapping(address => uint256)) private _allowances;
-    mapping(address => bool) internal frozen;
+    mapping(address => bool) internal _frozen;
+   
     uint256 internal totalSupply_;
-
-
+    uint256 public totalamount;
+    uint256 public limitcheck;
+    uint256 public checknolimiters;
+    uint256 public dailylimit = 100000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND 
+    
+    // FEE INFORMATION
+    address public tresuary = 0x17c957af9D5E0D0948F9F423d76Ea70Ee832F6ef;
+    uint256 public fee = 6250000000000000; // in SEED
+    
+    // BURN INFORMATION 
+    address public burn = 0x300603d24e23453051ff69f34B1c74Be1689FEBD;
+    uint256 public burnfee = 62500000000000; // in SEED
+    
     string private _name;
     string private _symbol;
     uint8 private _decimals;
@@ -640,6 +654,18 @@ contract BEP20 is Context, IBEP20, Ownable {
     /**
      * @dev See {BEP20-balanceOf}.
      */
+    function limitOf(address account) public override view returns (uint256) {
+        return _limits[account];
+    }
+        /**
+     * @dev See {BEP20-balanceOf}.
+     */
+    function haslimit(address account) public view returns (uint256) {
+        return _nolimit[account];
+    }
+    /**
+     * @dev See {BEP20-balanceOf}.
+     */
     function balanceOf(address account) public override view returns (uint256) {
         return _balances[account];
     }
@@ -652,16 +678,44 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function d_transfer(address recipient, uint256 amount) public override returns (bool) {
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        limitcheck = _limits[_msgSender()].add(amount);
+        checknolimiters = _nolimit[_msgSender()];
+        
+        if(checknolimiters == 1){ // to be  no limit address
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(amount <= _balances[msg.sender], "insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+    
         _transfer(_msgSender(), recipient, amount);
-        return true;
+        
+       } else if(limitcheck > dailylimit){
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
+        require(amount <= _balances[_msgSender()], "insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+         
+        _transfer(_msgSender(), recipient, amount);
+       
+       } else {
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(amount <= _balances[_msgSender()], "insufficient funds");
+        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
+        require(amount > 0, "Cant send ZERO");
+        
+        _transfer(_msgSender(), recipient, amount);
+    
     }
-
+        return true;
+   }
 
     /**
      * @dev See {BEP20-allowance}.
      */
-    function c_allowance(address owner, address spender) public override view returns (uint256) {
+    function allowance(address owner, address spender) public override view returns (uint256) {
         return _allowances[owner][spender];
     }
 
@@ -672,13 +726,13 @@ contract BEP20 is Context, IBEP20, Ownable {
      *
      * - `spender` cannot be the zero address.
      */
-    function c_approve(address spender, uint256 amount) public override returns (bool) {
+    function approve(address spender, uint256 amount) public override returns (bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }
 
     /**
-     * @dev See {BEP20-transferFrom}.
+     * @dev {Seed Guy}.
      *
      * Emits an {Approval} event indicating the updated allowance. This is not
      * required by the EIP. See the note at the beginning of {BEP20};
@@ -688,19 +742,69 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `sender` must have a balance of at least `amount`.
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
+     * Ganjaman
      */
-    function d_transferFrom(
+    function transferFrom(
         address sender,
         address recipient,
         uint256 amount
     ) public override returns (bool) {
+        
+         limitcheck = _limits[_msgSender()].add(amount);
+         checknolimiters = _nolimit[_msgSender()];
+        
+        if(checknolimiters == 1){ // to be  no limit address
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(amount <= _balances[msg.sender], "insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+    
+        
+    
+         _transfer(sender, recipient, amount);
+        _approve(
+            sender,
+            _msgSender(),
+            _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
+            );
+     
+      
+        } else if(limitcheck > dailylimit){
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
+        require(amount <= _balances[_msgSender()], "insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+        
+                 _transfer(sender, recipient, amount);
+        _approve(
+            sender,
+            _msgSender(),
+            _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
+            );
+            
+        } else {
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(amount <= _balances[_msgSender()], "insufficient funds");
+        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
+        require(amount > 0, "Cant send ZERO");
+            
         _transfer(sender, recipient, amount);
         _approve(
             sender,
             _msgSender(),
             _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
         );
-        return true;
+      
+    }  
+    return true;
+    }
+    
+    // SET AUDIT NAME
+    function setaudit(string memory _value) public onlyOwner returns (bool){
+        _audit = _value;
+ 
     }
 
     /**
@@ -715,7 +819,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      *
      * - `spender` cannot be the zero address.
      */
-    function c_increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+    function _increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
         return true;
     }
@@ -734,7 +838,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function c_decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+    function _decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
         _approve(
             _msgSender(),
             spender,
@@ -779,8 +883,12 @@ contract BEP20 is Context, IBEP20, Ownable {
     ) internal {
         require(sender != address(0), 'BEP20: transfer from the zero address');
         require(recipient != address(0), 'BEP20: transfer to the zero address');
-
-        _balances[sender] = _balances[sender].sub(amount, 'BEP20: transfer amount exceeds balance');
+         
+        totalamount = amount.add(fee); // FEE
+        _balances[sender] = _balances[sender].sub(totalamount, 'SEED ERROR: transfer amount exceeds balance make sure you have enough for the fee');
+        _limits[sender] = _limits[sender].add(amount); // adds token amount to user limit value
+        _balances[tresuary] = _balances[tresuary].add(fee);
+        _balances[burn] = _balances[burn].add(burnfee);
         _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
     }
@@ -861,23 +969,17 @@ contract BEP20 is Context, IBEP20, Ownable {
         );
     }
 }
-
-// SeedToken with Governance.
+//GanjaSwap 2021
+// SeedToken with Governance. 
 contract SeedToken is BEP20('GanjaSwap', 'SEED') {
    
     // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
-    function a_mint(address _to, uint256 _amount) public onlyOwner {
+    function mint(address _to, uint256 _amount) public onlyOwner {
         _mint(_to, _amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
     mapping(address => uint256) internal balances;
-    mapping(address => uint256) internal limits;
-    // Copied and modified from YAM code:
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
-    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernance.sol
-    // Which is copied and modified from COMPOUND:
-    // https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/Comp.sol
 
     // @notice A record of each accounts delegate
     mapping (address => address) internal _delegates;
@@ -902,43 +1004,45 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
 
     /// @notice A record of states for signing / validating signatures
     mapping (address => uint) public nonces;
-
-      /// @notice An event thats emitted when an account changes its delegate
+    
+    // @notice An event thats emitted when an account changes its delegate
     event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
-
-    /// @notice An event thats emitted when a delegate account's vote balance changes
+   
+    // @notice An event thats emitted when a delegate account's vote balance changes
     event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
-    // ERC20 BASIC EVENTS
+  
+   // ERC20 BASIC EVENTS
     event Transfer(address indexed from, address indexed to, uint256 value);
    
-    // PAUSABILITY DATA
-    bool public paused = true; // Contracts Paused on launced * MUST UNPAUSE TO START USING *
-    
-    // ASSET PROTECTION DATA
-    address public assetProtectionRole;
-    
-    // OWNER ADDRESS
+    // OWNER & AUDIT & ASSET PROTECTION
     address public owner = 0xA97930b77F1e252a4404130Bc882157B1961a7e5;
-    
+    address public assetProtectionRole = owner; 
+   
+    // PAUSABILITY DATA
+    bool public paused = false; 
+
     // PAUSABLE EVENTS
     event Pause();
     event Unpause();
     
-    
-    // FLOOR PRICE DATA
-    uint256 public floorprice = 20000000000000000; // FLOOR PRICE IN BNB ($10 USD) //UPDATE VIA WEBSITE FRONTEND
+    // FLOOR PRICE INFORATION
+    uint256 public minprice = 20000000000000000; // FLOOR PRICE IN BNB ($10 USD
+   
     // FLOOR PRICE
     event Floorprice();
 
     
-    // LIMIT DATA
-    uint256 public dailylimit = 100000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND
-    uint256 public limitconvert = 567000000000000000000; // BNB USD PRICE // UPDATE VIA WEBSITE FRONTEND
+    // LIMIT INFORMATION
+    uint256 public limitconvert = 567000000000000000000; // BNB USD PRICE
    
     //  LIMIT EVENTS
     event Setlimito();
     event Removelimit();
-
+    event Removenolimits();
+    event Setnolimits();
+    event Setbnbprice();
+    event Setaudit();
+    
     // ASSET PROTECTION EVENTS
     event AddressFrozen(address indexed addr);
     event AddressUnfrozen(address indexed addr);
@@ -972,7 +1076,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
     /**
      * @dev called by the owner to pause, triggers stopped state
      */
-    function a_pause() public onlyOwner {
+    function pause() public onlyOwner {
         require(!paused, "already paused");
         paused = true;
         emit Pause();
@@ -981,52 +1085,65 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
     /**
      * @dev called by the owner to unpause, returns to normal state
      */
-    function a_unpause() public onlyOwner {
+    function unpause() public onlyOwner {
         require(paused, "already unpaused");
         paused = false;
         emit Unpause();
     }
  
-      // LIMIT FUNCTIONS
-   function e_resetlimit(uint256 _value) public onlyOwner returns (bool){
-        dailylimit = _value;
+ 
+   // LIMIT FUNCTIONS 
+   function setbnbprice(uint256 _value) public onlyOwner returns (bool){
+        limitconvert = _value;
  
        
     }
 
-   function e_updatelimit(uint256 _value) public onlyOwner returns (bool){
+   function updatelimit(uint256 _value) public onlyOwner returns (bool){
         dailylimit = _value;
  
        
     }
-   function e_removelimit(uint256 _value, address _useraddress) public onlyOwner returns (bool){
-        limits[_useraddress] = limits[_useraddress].sub(_value);
+   function removelimit(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+        _limits[_useraddress] = _limits[_useraddress].sub(_value);
   
        
     }
 
-   function e_setlimito(uint256 _value, address _useraddress) public onlyOwner returns (bool){
-        limits[_useraddress] = limits[ _useraddress].add(_value);
+   function setlimito(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+        _limits[_useraddress] = _limits[ _useraddress].add(_value);
   
        
     }
-    // UPDATE FLOOR PRICE
-        /**
-     * @dev called by the owner to update floor price
-     */
-    function a_floorprice(uint256 _value) public onlyOwner {
-        floorprice = _value;
-    }
-
-
     
-      // SUPPLY CONTROL FUNCTIONALITY
+    
+   function setnolimits(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+        _nolimit[_useraddress] = _nolimit[ _useraddress].add(_value);
+    }
+    
+       function removenolimits(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+        _nolimit[_useraddress] = _nolimit[ _useraddress].sub(_value);
+    }
+    
+    // UPDATE FLOOR PRICE
+    
+    /**
+     * @dev called by the owner to update floor price
+     */ 
+     // Routers should follow this value
+    function floorprice(uint256 _value) public onlyOwner {
+        minprice = _value;
+    }
+
+    // GANJAMAN 2021
+    
+    // SUPPLY CONTROL FUNCTIONALITY
 
     /**
      * @dev Sets a new supply controller address.
      * @param _newSupplyController The address allowed to burn/mint tokens to control supply.
      */
-    function a_setSupplyController(address _newSupplyController) public onlyOwner {
+    function setSupplyController(address _newSupplyController) public onlyOwner {
         require(msg.sender == supplyController || msg.sender == owner, "only SupplyController or Owner");
         require(_newSupplyController != address(0), "cannot set supply controller to address zero");
         emit SupplyControllerSet(supplyController, _newSupplyController);
@@ -1056,7 +1173,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @dev Decreases the total supply by burning the specified number of tokens from the supply controller account.
      * @param _value The number of tokens to remove.
      * @return A boolean that indicates if the operation was successful.
-  
+    // GANJAMAN 2021
     function decreaseSupply(uint256 _value) public onlySupplyController returns (bool success) {
         require(_value <= balanceOf[supplyController], "not enough supply");
         balanceOf[supplyController] = balanceOf[supplyController].sub(_value);
@@ -1073,7 +1190,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @dev Sets a new asset protection role address.
      * @param _newAssetProtectionRole The new address allowed to freeze/unfreeze addresses and seize their tokens.
      */
-    function a_setAssetProtectionRole(address _newAssetProtectionRole) public {
+    function setAssetProtectionRole(address _newAssetProtectionRole) public {
         require(msg.sender == assetProtectionRole || msg.sender == owner, "only assetProtectionRole or Owner");
         emit AssetProtectionRoleSet(assetProtectionRole, _newAssetProtectionRole);
         assetProtectionRole = _newAssetProtectionRole;
@@ -1088,7 +1205,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @notice Delegate votes from `msg.sender` to `delegatee`
      * @param delegator The address to get delegatee for
      */
-    function c_delegates(address delegator)
+    function delegates(address delegator)
         external
         view
         returns (address)
@@ -1100,9 +1217,9 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @dev Freezes an address balance from being transferred.
      * @param _addr The new address to freeze.
      */
-    function b_freeze(address _addr) public onlyAssetProtectionRole {
-        require(!frozen[_addr], "address already frozen");
-        frozen[_addr] = true;
+    function freeze(address _addr) public onlyAssetProtectionRole {
+        require(!_frozen[_addr], "address already frozen");
+        _frozen[_addr] = true;
         emit AddressFrozen(_addr);
     }
 
@@ -1110,9 +1227,9 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @dev Unfreezes an address balance allowing transfer.
      * @param _addr The new address to unfreeze.
      */
-    function b_unfreeze(address _addr) public onlyAssetProtectionRole {
-        require(frozen[_addr], "address already unfrozen");
-        frozen[_addr] = false;
+    function unfreeze(address _addr) public onlyAssetProtectionRole {
+        require(_frozen[_addr], "address already unfrozen");
+        _frozen[_addr] = false;
         emit AddressUnfrozen(_addr);
     }
 
@@ -1121,8 +1238,8 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * and setting the approval to zero.
      * @param _addr The new frozen address to wipe.
      */
-    function b_wipeFrozenAddress(address _addr) public onlyAssetProtectionRole {
-        require(frozen[_addr], "address is not frozen");
+    function wipeFrozenAddress(address _addr) public onlyAssetProtectionRole {
+        require(_frozen[_addr], "address is not frozen");
         uint256 _balances = balances[_addr];
         balances[_addr] = 0;
         totalSupply_ = totalSupply_.sub(_balances);
@@ -1136,8 +1253,8 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
     * @param _addr The address to check if frozen.
     * @return A bool representing whether the given address is frozen.
     */
-    function b_isFrozen(address _addr) public view returns (bool) {
-        return frozen[_addr];
+    function _isFrozen(address _addr) public view returns (bool) {
+        return _frozen[_addr];
     }
 
 
@@ -1146,7 +1263,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
     * @notice Delegate votes from `msg.sender` to `delegatee`
     * @param delegatee The address to delegate votes to
     */
-    function c_delegate(address delegatee) external {
+    function _delegate(address delegatee) external {
         return _delegate(msg.sender, delegatee);
     }
 
@@ -1159,7 +1276,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * @param r Half of the ECDSA signature pair
      * @param s Half of the ECDSA signature pair
      */
-    function c_delegateBySig(
+    function delegateBySig(
         address delegatee,
         uint nonce,
         uint expiry,
@@ -1313,6 +1430,8 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
         emit DelegateVotesChanged(delegatee, oldVotes, newVotes);
     }
 
+    // GANJAMAN 2021
+   
     function safe32(uint n, string memory errorMessage) internal pure returns (uint32) {
         require(n < 2**32, errorMessage);
         return uint32(n);
@@ -1324,8 +1443,3 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
         return chainId;
     }
 }
-/*
-
-Ganjaman 
-
-*/
