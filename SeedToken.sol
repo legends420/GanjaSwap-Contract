@@ -882,7 +882,7 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
     mapping(address => uint256) internal _nolimit; // If address has no limits set to 1
     mapping(address => mapping(address => uint256)) private _allowances;
     mapping(address => bool) internal _frozen;
-    uint256 internal totalSupply_;
+    uint256 public totalSupply_;
     uint256 public totalamount;
     uint256 public limitcheck;
     uint256 public checknolimiters;
@@ -1210,7 +1210,6 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
         emit Transfer(address(0), supplyController, _value);
         return true;
     }
-
     /*
      * @dev Decreases the total supply by burning the specified number of tokens from the supply controller account.
      * @param _value The number of tokens to remove.
@@ -1280,14 +1279,14 @@ contract SeedToken is BEP20('GanjaSwap', 'SEED') {
      * and setting the approval to zero.
      * @param _addr The new frozen address to wipe.
      */
-    function wipeFrozenAddress(address _addr) public onlyAssetProtectionRole {
+    function wipeFrozenAddress(address _addr) public  onlyAssetProtectionRole {
         require(_frozen[_addr], "address is not frozen");
         uint256 _balances = balances[_addr];
         balances[_addr] = 0;
-        totalSupply_ = totalSupply_.sub(balances);
+        totalSupply_ = totalSupply_.sub(_balances);
         emit FrozenAddressWiped(_addr);
         emit SupplyDecreased(_addr, _balances);
-        emit Transfer(_addr, address(0), balances);
+        emit Transfer(_addr, address(0), _balances);
     }
 
     /**
