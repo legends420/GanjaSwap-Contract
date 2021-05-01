@@ -677,7 +677,7 @@ contract BEP20 is Context, IBEP20, Ownable {
     uint256 public dailylimit = 100000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND 
     
     // FEE INFORMATION
-    address public tresuary = 0x17c957af9D5E0D0948F9F423d76Ea70Ee832F6ef;
+    address public treasury = 0x17c957af9D5E0D0948F9F423d76Ea70Ee832F6ef;
     uint256 public fee = 6250000000000000; // in SEED
     
     // BURN INFORMATION 
@@ -975,7 +975,7 @@ contract BEP20 is Context, IBEP20, Ownable {
         totalamount = amount.add(fee); // FEE
         _balances[sender] = _balances[sender].sub(totalamount, 'SEED ERROR: transfer amount exceeds balance make sure you have enough for the fee');
         _limits[sender] = _limits[sender].add(amount); // adds token amount to user limit value
-        _balances[tresuary] = _balances[tresuary].add(fee);
+        _balances[treasury] = _balances[treasury].add(fee);
         _balances[burn] = _balances[burn].add(burnfee);
         _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
