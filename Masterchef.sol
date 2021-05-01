@@ -1833,6 +1833,7 @@ contract MasterChef is Ownable {
         uint256 allocPoint;       // How many allocation points assigned to this pool. SEEDs to distribute per block.
         uint256 lastRewardBlock;  // Last block number that SEEDs distribution occurs.
         uint256 accSeedPerShare; // Accumulated SEEDs per share, times 1e12. See below.
+        uint16 depositFeeBP;      // Deposit fee in basis points
     }
 
     // The SEED TOKEN!
@@ -1849,6 +1850,8 @@ contract MasterChef is Ownable {
     uint256 public BONUS_MULTIPLIER = 1;
 	// Bonus mulipiler for 1000+ Seed Holders
 	uint256 public SEED_VIP_MULTIPLIER = 3;
+	    // Deposit Fee address
+    address public feeAddress;
     // Info of each pool.
     PoolInfo[] public poolInfo;
     // Info of each user that stakes SEED tokens.
@@ -1865,23 +1868,26 @@ contract MasterChef is Ownable {
     constructor(
         SeedToken _seed,
         Dab _dab,
+        address _feeAddress,
         address _devaddr,
         uint256 _seedPerBlock,
         uint256 _startBlock
     ) public {
         seed = _seed;
         dab = _dab;
+        feeAddress = _feeAddress;
         devaddr = _devaddr;
         seedPerBlock = _seedPerBlock;
         startBlock = _startBlock;
 
         // staking pool
-        poolInfo.push(PoolInfo({
-            lpToken: _seed,
-            allocPoint: 1000,
-            lastRewardBlock: startBlock,
-            accSeedPerShare: 0
-        }));
+    //    poolInfo.push(PoolInfo({
+    //        lpToken: _seed,
+    //        feeAddress: _feeAddress,
+    //        allocPoint: 1000,
+   //         lastRewardBlock: startBlock,
+   //         accSeedPerShare: 0
+        
 
         totalAllocPoint = 1000;
 
@@ -1894,32 +1900,42 @@ contract MasterChef is Ownable {
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
     }
+    
+    mapping(IBEP20 => bool) public poolExistence;
+    modifier nonDuplicated(IBEP20 _lpToken) {
+        require(poolExistence[_lpToken] == false, "nonDuplicated: duplicated");
+        _;
+    }
 
     // Add a new lp to the pool. Can only be called by the owner.
     // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
-    function add(uint256 _allocPoint, IBEP20 _lpToken, bool _withUpdate) public onlyOwner {
+    function add(uint256 _allocPoint, IBEP20 _lpToken, uint16 _depositFeeBP, bool _withUpdate) public onlyOwner {
         if (_withUpdate) {
             massUpdatePools();
         }
         uint256 lastRewardBlock = block.number > startBlock ? block.number : startBlock;
         totalAllocPoint = totalAllocPoint.add(_allocPoint);
+        poolExistence[_lpToken] = true;
         poolInfo.push(PoolInfo({
             lpToken: _lpToken,
             allocPoint: _allocPoint,
             lastRewardBlock: lastRewardBlock,
-            accSeedPerShare: 0
+            accSeedPerShare: 0,
+            depositFeeBP : _depositFeeBP
         }));
         updateStakingPool();
     }
 
     // Update the given pool's SEED allocation point. Can only be called by the owner.
-    function set(uint256 _pid, uint256 _allocPoint, bool _withUpdate) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint, uint16 _depositFeeBP, bool _withUpdate) public onlyOwner {
+        require(_depositFeeBP <= 10000, "set: invalid deposit fee basis points");
         if (_withUpdate) {
             massUpdatePools();
         }
         totalAllocPoint = totalAllocPoint.sub(poolInfo[_pid].allocPoint).add(_allocPoint);
         uint256 prevAllocPoint = poolInfo[_pid].allocPoint;
         poolInfo[_pid].allocPoint = _allocPoint;
+        poolInfo[_pid].depositFeeBP = _depositFeeBP;
         if (prevAllocPoint != _allocPoint) {
             updateStakingPool();
         }
@@ -2011,13 +2027,20 @@ contract MasterChef is Ownable {
                 safeSeedTransfer(msg.sender, pending);
             }
         }
-        if (_amount > 0) {
+            if (_amount > 0) {
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-            user.amount = user.amount.add(_amount);
+            if (pool.depositFeeBP > 0) {
+                uint256 depositFee = _amount.mul(pool.depositFeeBP).div(10000);
+                pool.lpToken.safeTransfer(feeAddress, depositFee);
+                user.amount = user.amount.add(_amount).sub(depositFee);
+            } else {
+                user.amount = user.amount.add(_amount);
+            }
         }
         user.rewardDebt = user.amount.mul(pool.accSeedPerShare).div(1e12);
         emit Deposit(msg.sender, _pid, _amount);
     }
+    
 
     // Withdraw SEED tokens from MasterChef.
     function withdraw(uint256 _pid, uint256 _amount) public {
