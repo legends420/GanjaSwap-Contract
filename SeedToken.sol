@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0.2
+// Version 1.0.3
 // Creator Ganjaman @ GanjaSwap
 
 
@@ -1013,6 +1013,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     function unpause() public onlyOwner {
         require(paused, "already unpaused");
         paused = false;
+        isburn = 0;
         emit Unpause();
     }
     
