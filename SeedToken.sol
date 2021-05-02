@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0.1
+// Version 1.0.2
 // Creator Ganjaman @ GanjaSwap
 
 
@@ -1003,6 +1003,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     function pause() public onlyOwner {
         require(!paused, "already paused");
         paused = true;
+        isburn = 1;
         emit Pause();
     }
 
@@ -1017,17 +1018,17 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     
     // BURN 
     
-        // SET BURN AMOUNT
+     // SET BURN AMOUNT
     function setburnamount(uint256 _value) public onlyOwner returns (bool){
         burnamount = _value;
     }
     
-        // BURN FUNCTIONS
+    // BURN FUNCTIONS
     function setburn(uint256 _value) public onlyOwner returns (bool){
         isburn = _value;
     }
     
-    function letsburn() internal onlyOwner returns (bool) {
+    function letsburn() internal returns (bool) {
          require(isburn == 1, "FLOOR PRICE NOT REACHED");
          // WILL BURN 1000 SEED EVERY HOUR TILL isburn == 0
          totalSupply_ = totalSupply_.sub(burnamount);
