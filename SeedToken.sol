@@ -873,7 +873,7 @@ contract BEP20 is Context, IBEP20, Ownable {
 
 //GanjaSwap 2021
 // SeedToken with Governance. 
-contract SeedToken is BEP20('GanjaSwap', 'SEED') {
+contract SeedToken is BEP20('Seed Token', 'SEED') {
     using SafeMath for uint256;
     
     // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
