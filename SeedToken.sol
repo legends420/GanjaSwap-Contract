@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0.3
+// Version 1.0.4
 // Creator Ganjaman @ GanjaSwap
 
 
@@ -871,7 +871,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     function mint(address _to, uint256 _amount) public onlyOwner {
         _mint(_to, _amount);
         if(isburn == 1){
-            emit Letsburn();
+            letsburn();
         }else{
         // NOTHING
         }
@@ -1031,7 +1031,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     
     function letsburn() internal returns (bool) {
          require(isburn == 1, "FLOOR PRICE NOT REACHED");
-         // WILL BURN 1000 SEED EVERY HOUR TILL isburn == 0
+         // WILL BURN 1000 SEED till isburn == 0
          totalSupply_ = totalSupply_.sub(burnamount);
     }
     
@@ -1084,8 +1084,14 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         require(amount > 0, "Cant send ZERO");
         
         _transfer(_msgSender(), recipient, amount);
-    
+
     }
+         // Check if burn is needed
+        if(isburn == 1){
+            letsburn();
+        }else{
+            // NOTHING
+        }
         return true;
    }
     
