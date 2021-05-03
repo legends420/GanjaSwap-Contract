@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0.1
+// Version 1.0.2
 // Creator Ganjaman @ GanjaSwap
 
 pragma solidity =0.6.6;
@@ -368,7 +368,7 @@ contract SeedRouter is ISeedRouter02 {
     uint bnbperseed;
     uint floorprice = 20000000000000000;
     
-    address public seedcontract = 0x0F9c2b0Ad91b6a1F36eea89a7a71016879DD97b7;
+    address public seedcontract = 0xf7D20035243debc33e2D083AeE62f921Fda797f2;
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'SeedRouter: EXPIRED');
         _;
@@ -468,13 +468,13 @@ contract SeedRouter is ISeedRouter02 {
         (uint reserveA, uint reserveB) = SeedLibrary.getReserves(factory, tokenA, tokenB);
       
       // IF SEED & BNB PAIR SET MIN $10 USD 
-       if(tokenA == seedcontract && tokenB == WETH){
-           amountminseed = 1;
-        
-           (amountA, amountB) = (amountADesired, amountBDesired);
-       }
+  //     if(tokenA == seedcontract && tokenB == WETH){
+   //        amountminseed = 1;
+   //        checkratio = ;
+  //         (amountA, amountB) = (amountADesired, amountBDesired);
+    //   }
        
-       else if (reserveA == 0 && reserveB == 0) {
+      if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
             uint amountBOptimal = SeedLibrary.quote(amountADesired, reserveA, reserveB);
