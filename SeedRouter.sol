@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0
+// Version 1.0.1
 // Creator Ganjaman @ GanjaSwap
 
 pragma solidity =0.6.6;
@@ -356,7 +356,7 @@ interface IWETH {
 
 contract SeedRouter is ISeedRouter02 {
     using SafeMath for uint;
-
+    
     address public immutable override factory;
     address public immutable override WETH;
 
@@ -368,7 +368,7 @@ contract SeedRouter is ISeedRouter02 {
     uint bnbperseed;
     uint floorprice = 20000000000000000;
     
-    address public seedcontract = 0xCcD286470d46FAc36B8E5a848547e5D06F851217;
+    address public seedcontract = 0x0F9c2b0Ad91b6a1F36eea89a7a71016879DD97b7;
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'SeedRouter: EXPIRED');
         _;
@@ -473,7 +473,6 @@ contract SeedRouter is ISeedRouter02 {
         
            (amountA, amountB) = (amountADesired, amountBDesired);
        }
-       
        
        else if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
