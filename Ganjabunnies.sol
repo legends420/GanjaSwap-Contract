@@ -1797,7 +1797,7 @@ pragma solidity ^0.6.0;
 
 
 
-contract PancakeBunnies is ERC721, Ownable {
+contract SeedBunnies is ERC721, Ownable {
     using Counters for Counters.Counter;
 
     // Map the number of tokens per bunnyId
@@ -1815,7 +1815,7 @@ contract PancakeBunnies is ERC721, Ownable {
     // Map the bunnyName for a tokenId
     mapping(uint8 => string) private bunnyNames;
 
-    constructor(string memory _baseURI) public ERC721("Pancake Bunnies", "PB") {
+    constructor(string memory _baseURI) public ERC721("Seed Bunnies", "SB") {
         _setBaseURI(_baseURI);
     }
 
