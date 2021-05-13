@@ -2343,7 +2343,7 @@ contract ERC721 is
 
 pragma solidity ^0.6.0;
 
-contract PancakeBunnies is ERC721, Ownable {
+contract SeedBunnies is ERC721, Ownable {
     using Counters for Counters.Counter;
 
     // Map the number of tokens per bunnyId
@@ -2361,7 +2361,7 @@ contract PancakeBunnies is ERC721, Ownable {
     // Map the bunnyName for a tokenId
     mapping(uint8 => string) private bunnyNames;
 
-    constructor(string memory _baseURI) public ERC721("Pancake Bunnies", "PB") {
+    constructor(string memory _baseURI) public ERC721("Seed Bunnies", "SB") {
         _setBaseURI(_baseURI);
     }
 
@@ -2443,7 +2443,7 @@ Pancake Collectibles/Bunnies.
 */
 
 contract BunnyMintingStation is AccessControl {
-    PancakeBunnies public pancakeBunnies;
+    SeedBunnies public seedBunnies;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
@@ -2460,7 +2460,7 @@ contract BunnyMintingStation is AccessControl {
     }
 
     constructor(PancakeBunnies _pancakeBunnies) public {
-        pancakeBunnies = _pancakeBunnies;
+        seedBunnies = _seedBunnies;
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
@@ -2473,7 +2473,7 @@ contract BunnyMintingStation is AccessControl {
         uint8 _bunnyId
     ) external onlyMinter returns (uint256) {
         uint256 tokenId =
-            pancakeBunnies.mint(_tokenReceiver, _tokenURI, _bunnyId);
+            seedBunnies.mint(_tokenReceiver, _tokenURI, _bunnyId);
         return tokenId;
     }
 
@@ -2485,7 +2485,7 @@ contract BunnyMintingStation is AccessControl {
         external
         onlyOwner
     {
-        pancakeBunnies.setBunnyName(_bunnyId, _bunnyName);
+        seedBunnies.setBunnyName(_bunnyId, _bunnyName);
     }
 
     /**
@@ -2494,6 +2494,6 @@ contract BunnyMintingStation is AccessControl {
      * Only the main admins can set it.
      */
     function changeOwnershipNFTContract(address _newOwner) external onlyOwner {
-        pancakeBunnies.transferOwnership(_newOwner);
+        seedBunnies.transferOwnership(_newOwner);
     }
 }
